@@ -23,8 +23,8 @@ export const AssigneeWorkloadReport: React.FC<AssigneeWorkloadReportProps> = ({ 
 
         // Count tasks by assignee and status
         tasks.forEach(task => {
-            if (task.assignedTo) {
-                const userData = userMap.get(task.assignedTo);
+            if (task.assigneeId) {
+                const userData = userMap.get(task.assigneeId);
                 if (userData) {
                     if (task.status === 'To Do') {
                         userData.todo++;

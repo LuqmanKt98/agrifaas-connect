@@ -1,10 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { FarmDataContextType, Task, User, Plot, Season } from '../types';
+import type { FarmDataContextType, Task, User, Plot, Season, InventoryItem, InventoryConsumption } from '../types';
 import { TaskStatus } from '../types';
 import { Button } from './shared/Button';
 import { Modal } from './shared/Modal';
 import { Input } from './shared/Input';
 import { TASK_CATEGORIES } from '../constants';
+import { CostByPlotReport } from './CostByPlotReport';
+import { CostByCategoryReport } from './CostByCategoryReport';
+import { AssigneeWorkloadReport } from './AssigneeWorkloadReport';
+import { OperationalCalendar } from './OperationalCalendar';
 
 // AddTaskModal component
 interface AddTaskModalProps {
@@ -13,9 +17,10 @@ interface AddTaskModalProps {
     onSubmit: (task: Omit<Task, 'id' | 'createdAt' | 'comments'>) => void;
     users: User[];
     plots: Plot[];
+    inventory: InventoryItem[];
 }
 
-const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, users, plots }) => {
+const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, users, plots, inventory }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [plotId, setPlotId] = useState('');
@@ -26,6 +31,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
     const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
     const [category, setCategory] = useState(TASK_CATEGORIES[0]);
     const [reminderDate, setReminderDate] = useState('');
+    const [inventoryConsumed, setInventoryConsumed] = useState<InventoryConsumption[]>([]);
 
     useEffect(() => {
         if (isOpen) {
@@ -39,8 +45,27 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
             setPriority('Medium');
             setCategory(TASK_CATEGORIES[0]);
             setReminderDate('');
+            setInventoryConsumed([]);
         }
     }, [isOpen, plots, users]);
+
+    const handleAddInventoryItem = () => {
+        setInventoryConsumed([...inventoryConsumed, { itemId: inventory[0]?.id || '', quantity: 0 }]);
+    };
+
+    const handleRemoveInventoryItem = (index: number) => {
+        setInventoryConsumed(inventoryConsumed.filter((_, i) => i !== index));
+    };
+
+    const handleInventoryItemChange = (index: number, field: 'itemId' | 'quantity', value: string | number) => {
+        const updated = [...inventoryConsumed];
+        if (field === 'itemId') {
+            updated[index].itemId = value as string;
+        } else {
+            updated[index].quantity = value as number;
+        }
+        setInventoryConsumed(updated);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,7 +73,19 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
             alert('Please fill in all required fields.');
             return;
         }
-        onSubmit({ title, description, plotId, assigneeId, dueDate, status, cost, priority, category, reminderDate: reminderDate || null });
+        onSubmit({
+            title,
+            description,
+            plotId,
+            assigneeId,
+            dueDate,
+            status,
+            cost,
+            priority,
+            category,
+            reminderDate: reminderDate || null,
+            inventoryConsumed: inventoryConsumed.length > 0 ? inventoryConsumed : undefined
+        });
         onClose();
     };
 
@@ -101,6 +138,58 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
                         </select>
                     </div>
                 </div>
+
+                {/* Inventory Consumption Section */}
+                <div className="border-t pt-4">
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="block text-sm font-medium text-gray-700">Inventory Consumption</label>
+                        <Button type="button" variant="secondary" onClick={handleAddInventoryItem} className="text-xs">
+                            + Add Item
+                        </Button>
+                    </div>
+                    {inventoryConsumed.length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">No inventory items added</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {inventoryConsumed.map((item, index) => (
+                                <div key={index} className="flex gap-2 items-end">
+                                    <div className="flex-1">
+                                        <label className="block text-xs text-gray-600 mb-1">Item</label>
+                                        <select
+                                            value={item.itemId}
+                                            onChange={e => handleInventoryItemChange(index, 'itemId', e.target.value)}
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                                        >
+                                            {inventory.map(inv => (
+                                                <option key={inv.id} value={inv.id}>
+                                                    {inv.name} (Available: {inv.quantity} {inv.unit})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="w-32">
+                                        <label className="block text-xs text-gray-600 mb-1">Quantity</label>
+                                        <input
+                                            type="number"
+                                            value={item.quantity}
+                                            onChange={e => handleInventoryItemChange(index, 'quantity', Number(e.target.value))}
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                                            min="0"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveInventoryItem(index)}
+                                        className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 <div className="flex justify-end space-x-2 pt-4">
                     <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                     <Button type="submit">Create Task</Button>
@@ -158,21 +247,34 @@ const TaskCard: React.FC<{ task: Task, onClick: () => void, users: User[], plots
 };
 
 export const Operations: React.FC<OperationsProps> = ({ farmData, user, workspaceUsers, onSelectTask }) => {
-    const { tasks, plots, seasons, addTask, updateTask } = farmData;
-    const [viewMode, setViewMode] = useState<'Board' | 'Grouped'>('Board');
+    const { tasks, plots, seasons, addTask, updateTask, inventory } = farmData;
+    const [viewMode, setViewMode] = useState<'Board' | 'Grouped' | 'Calendar' | 'Reports'>('Board');
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-    
+
     // Filters
     const [selectedPlot, setSelectedPlot] = useState<string>('all');
     const [selectedSeason, setSelectedSeason] = useState<string>('all');
+    const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
+    const [selectedStatus, setSelectedStatus] = useState<string>('all');
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [dueDateStart, setDueDateStart] = useState<string>('');
+    const [dueDateEnd, setDueDateEnd] = useState<string>('');
     
     const filteredTasks = useMemo(() => {
         return tasks.filter(task => {
             const plotMatch = selectedPlot === 'all' || task.plotId === selectedPlot;
             const seasonMatch = true; // Placeholder for future season filtering logic
-            return plotMatch && seasonMatch;
+            const assigneeMatch = selectedAssignee === 'all' || task.assigneeId === selectedAssignee;
+            const statusMatch = selectedStatus === 'all' || task.status === selectedStatus;
+            const categoryMatch = selectedCategory === 'all' || task.category === selectedCategory;
+
+            let dueDateMatch = true;
+            if (dueDateStart && task.dueDate < dueDateStart) dueDateMatch = false;
+            if (dueDateEnd && task.dueDate > dueDateEnd) dueDateMatch = false;
+
+            return plotMatch && seasonMatch && assigneeMatch && statusMatch && categoryMatch && dueDateMatch;
         });
-    }, [tasks, selectedPlot, selectedSeason]);
+    }, [tasks, selectedPlot, selectedSeason, selectedAssignee, selectedStatus, selectedCategory, dueDateStart, dueDateEnd]);
 
 
     const tasksByStatus = useMemo(() => {
@@ -249,8 +351,8 @@ export const Operations: React.FC<OperationsProps> = ({ farmData, user, workspac
     const renderBoardView = () => (
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Object.values(TaskStatus).map(status => (
-                <div 
-                    key={status} 
+                <div
+                    key={status}
                     className="bg-gray-100 rounded-lg p-4"
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, status)}
@@ -267,15 +369,39 @@ export const Operations: React.FC<OperationsProps> = ({ farmData, user, workspac
         </div>
     );
 
+    const renderReportsView = () => (
+        <div className="space-y-6">
+            <CostByPlotReport tasks={filteredTasks} plots={plots} />
+            <CostByCategoryReport tasks={filteredTasks} />
+            <AssigneeWorkloadReport tasks={filteredTasks} users={workspaceUsers} />
+        </div>
+    );
+
+    const renderCurrentView = () => {
+        switch (viewMode) {
+            case 'Board':
+                return renderBoardView();
+            case 'Grouped':
+                return renderGroupedView();
+            case 'Calendar':
+                return <OperationalCalendar tasks={filteredTasks} onTaskClick={onSelectTask} />;
+            case 'Reports':
+                return renderReportsView();
+            default:
+                return renderBoardView();
+        }
+    };
+
 
     return (
         <>
-            <AddTaskModal 
+            <AddTaskModal
                 isOpen={isAddTaskModalOpen}
                 onClose={() => setIsAddTaskModalOpen(false)}
                 onSubmit={handleAddTask}
                 users={workspaceUsers}
                 plots={plots}
+                inventory={inventory || []}
             />
 
             <div className="space-y-6">
@@ -283,28 +409,69 @@ export const Operations: React.FC<OperationsProps> = ({ farmData, user, workspac
                     <div className="flex items-center space-x-2 bg-gray-200 p-1 rounded-lg">
                         <Button variant={viewMode === 'Board' ? 'primary' : 'secondary'} className={`!text-sm !py-1 !px-3 ${viewMode !== 'Board' && '!bg-white !text-gray-700'}`} onClick={() => setViewMode('Board')}>Board</Button>
                         <Button variant={viewMode === 'Grouped' ? 'primary' : 'secondary'} className={`!text-sm !py-1 !px-3 ${viewMode !== 'Grouped' && '!bg-white !text-gray-700'}`} onClick={() => setViewMode('Grouped')}>Grouped</Button>
+                        <Button variant={viewMode === 'Calendar' ? 'primary' : 'secondary'} className={`!text-sm !py-1 !px-3 ${viewMode !== 'Calendar' && '!bg-white !text-gray-700'}`} onClick={() => setViewMode('Calendar')}>Calendar</Button>
+                        <Button variant={viewMode === 'Reports' ? 'primary' : 'secondary'} className={`!text-sm !py-1 !px-3 ${viewMode !== 'Reports' && '!bg-white !text-gray-700'}`} onClick={() => setViewMode('Reports')}>Reports</Button>
                     </div>
 
-                    <div className="flex items-center space-x-4 flex-wrap">
-                         <div>
-                            <label htmlFor="plot-filter" className="text-sm font-medium text-gray-700 mr-2">Plot:</label>
-                            <select id="plot-filter" value={selectedPlot} onChange={e => setSelectedPlot(e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white text-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                    <Button onClick={() => setIsAddTaskModalOpen(true)}>Add Task</Button>
+                </div>
+
+                {/* Enhanced Filters */}
+                <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Filters</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label htmlFor="plot-filter" className="block text-xs font-medium text-gray-600 mb-1">Plot</label>
+                            <select id="plot-filter" value={selectedPlot} onChange={e => setSelectedPlot(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white text-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
                                 <option value="all">All Plots</option>
                                 {plots.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                         </div>
-                         <div>
-                            <label htmlFor="season-filter" className="text-sm font-medium text-gray-700 mr-2">Season:</label>
-                             <select id="season-filter" value={selectedSeason} onChange={e => setSelectedSeason(e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white text-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                                <option value="all">All Seasons</option>
-                                {seasons.map(s => <option key={s.id} value={s.id}>{`${s.name} ${s.year}`}</option>)}
+                        <div>
+                            <label htmlFor="assignee-filter" className="block text-xs font-medium text-gray-600 mb-1">Assignee</label>
+                            <select id="assignee-filter" value={selectedAssignee} onChange={e => setSelectedAssignee(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white text-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                <option value="all">All Assignees</option>
+                                {workspaceUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                             </select>
                         </div>
+                        <div>
+                            <label htmlFor="status-filter" className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                            <select id="status-filter" value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white text-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                <option value="all">All Statuses</option>
+                                {Object.values(TaskStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="category-filter" className="block text-xs font-medium text-gray-600 mb-1">Category</label>
+                            <select id="category-filter" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white text-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                <option value="all">All Categories</option>
+                                {TASK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="due-date-start" className="block text-xs font-medium text-gray-600 mb-1">Due Date From</label>
+                            <input
+                                type="date"
+                                id="due-date-start"
+                                value={dueDateStart}
+                                onChange={e => setDueDateStart(e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white text-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="due-date-end" className="block text-xs font-medium text-gray-600 mb-1">Due Date To</label>
+                            <input
+                                type="date"
+                                id="due-date-end"
+                                value={dueDateEnd}
+                                onChange={e => setDueDateEnd(e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white text-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            />
+                        </div>
                     </div>
-                    
-                    <Button onClick={() => setIsAddTaskModalOpen(true)}>Add Task</Button>
                 </div>
-                {viewMode === 'Board' ? renderBoardView() : renderGroupedView()}
+
+                {renderCurrentView()}
             </div>
         </>
     );

@@ -61,13 +61,11 @@ const App: React.FC = () => {
         }
 
         const loadUserData = async () => {
-            const userDoc = await getDocument('users', firebaseUser.uid);
-            if (userDoc.exists()) {
-                const userData = { id: firebaseUser.uid, ...userDoc.data() } as User;
+            const userData = await getDocument<User>('users', firebaseUser.uid);
+            if (userData) {
                 setUser(userData);
 
-                const workspacesSnap = await queryCollection('workspaces', `members.${firebaseUser.uid}`, '!=', null);
-                const workspaces = workspacesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workspace));
+                const workspaces = await queryCollection<Workspace>('workspaces', `members.${firebaseUser.uid}`, '!=', null);
                 setAllWorkspaces(workspaces);
 
                 if (workspaces.length > 0) {
@@ -127,13 +125,11 @@ const App: React.FC = () => {
             const userCredential = await signUp(email, password);
             await setDocument('users', userCredential.user.uid, { email, name });
             
-            const wsDoc = await getDocument('workspaces', workspaceId);
-            if (!wsDoc.exists()) {
+            const wsData = await getDocument<Workspace>('workspaces', workspaceId);
+            if (!wsData) {
                 alert('Workspace not found.');
                 return false;
             }
-            
-            const wsData = wsDoc.data() as Workspace;
             wsData.members[userCredential.user.uid] = { role: 'member' };
             await setDocument('workspaces', workspaceId, wsData);
             return true;
@@ -156,9 +152,9 @@ const App: React.FC = () => {
     const handleGoogleLogin = async (workspaceId?: string) => {
         try {
             const userCredential = await signInWithGoogle();
-            const userDoc = await getDocument('users', userCredential.user.uid);
+            const userData = await getDocument<User>('users', userCredential.user.uid);
             
-            if (!userDoc.exists()) {
+            if (!userData) {
                 await setDocument('users', userCredential.user.uid, {
                     email: userCredential.user.email,
                     name: userCredential.user.displayName || 'User'
@@ -166,13 +162,11 @@ const App: React.FC = () => {
             }
             
             if (workspaceId) {
-                const wsDoc = await getDocument('workspaces', workspaceId);
-                if (!wsDoc.exists()) {
+                const wsData = await getDocument<Workspace>('workspaces', workspaceId);
+                if (!wsData) {
                     alert('Workspace not found.');
                     return;
                 }
-                
-                const wsData = wsDoc.data() as Workspace;
                 wsData.members[userCredential.user.uid] = { role: 'member' };
                 await setDocument('workspaces', workspaceId, wsData);
             }

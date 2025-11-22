@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup-deploy": "node setup-deployment.js",
+    "deploy:vercel": "vercel",
+    "deploy:vercel:prod": "vercel --prod"
   },
   "dependencies": {
     "react-dom": "^19.2.0",

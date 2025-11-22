@@ -172,28 +172,35 @@ export interface FeaturePermission {
     allowedRoles: Role[];
 }
 
+export interface WorkspaceMember {
+    role: Role;
+}
+
 export interface Workspace {
     id: string;
     name: string;
-    members: { [userId: string]: { role: Role } };
+    members: { [userId: string]: WorkspaceMember };
     featurePermissions: { [key in Feature]: FeaturePermission };
     status?: 'active' | 'suspended';
     ownerId?: string;
+    createdAt?: string;
 }
 
 // Super Admin types
+export type SuperAdminView = 'Dashboard' | 'Workspaces' | 'Users' | 'Configuration' | 'Audit Log';
+
 export interface PlatformConfig {
-    featureFlags: { [key: string]: boolean };
+    featureFlags: {
+        [key in Feature]?: { enabled: boolean };
+    };
     defaultPermissions: { [key in Feature]: FeaturePermission };
 }
 
 export interface AuditLogEntry {
     id: string;
     timestamp: string;
+    superAdminId: string;
     action: string;
-    performedBy: string;
-    targetType: 'user' | 'workspace';
-    targetId: string;
     details: string;
 }
 

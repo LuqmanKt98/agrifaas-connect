@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../config/firebase';
-import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import type { Plot, Season, Task, Account, JournalEntry, Employee, Timesheet, InventoryItem, Farmer, KnowledgeBaseArticle, FarmDataContextType, Interaction } from '../types';
+import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import type { Plot, Season, Task, Account, JournalEntry, Employee, Timesheet, InventoryItem, Farmer, KnowledgeBaseArticle, FarmDataContextType, Interaction, Supplier, Harvest, Sale, Customer } from '../types';
 
 export const useFarmDataFirestore = (workspaceId: string): FarmDataContextType => {
   const [plots, setPlots] = useState<Plot[]>([]);
@@ -15,6 +15,10 @@ export const useFarmDataFirestore = (workspaceId: string): FarmDataContextType =
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [kbArticles, setKbArticles] = useState<KnowledgeBaseArticle[]>([]);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [harvests, setHarvests] = useState<Harvest[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   useEffect(() => {
     const unsubscribers = [
@@ -28,7 +32,11 @@ export const useFarmDataFirestore = (workspaceId: string): FarmDataContextType =
       onSnapshot(collection(db, `workspaces/${workspaceId}/inventory`), snap => setInventory(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)))),
       onSnapshot(collection(db, `workspaces/${workspaceId}/farmers`), snap => setFarmers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Farmer)))),
       onSnapshot(collection(db, `workspaces/${workspaceId}/kbArticles`), snap => setKbArticles(snap.docs.map(d => ({ id: d.id, ...d.data() } as KnowledgeBaseArticle)))),
-      onSnapshot(collection(db, `workspaces/${workspaceId}/interactions`), snap => setInteractions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Interaction))))
+      onSnapshot(collection(db, `workspaces/${workspaceId}/interactions`), snap => setInteractions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Interaction)))),
+      onSnapshot(collection(db, `workspaces/${workspaceId}/suppliers`), snap => setSuppliers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Supplier)))),
+      onSnapshot(collection(db, `workspaces/${workspaceId}/harvests`), snap => setHarvests(snap.docs.map(d => ({ id: d.id, ...d.data() } as Harvest)))),
+      onSnapshot(collection(db, `workspaces/${workspaceId}/sales`), snap => setSales(snap.docs.map(d => ({ id: d.id, ...d.data() } as Sale)))),
+      onSnapshot(collection(db, `workspaces/${workspaceId}/customers`), snap => setCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Customer))))
     ];
     return () => unsubscribers.forEach(u => u());
   }, [workspaceId]);
@@ -129,8 +137,56 @@ export const useFarmDataFirestore = (workspaceId: string): FarmDataContextType =
 
   const deleteKBArticle = useCallback((id: string) => deleteDoc(doc(db, `workspaces/${workspaceId}/kbArticles`, id)), [workspaceId]);
 
+  const addSupplier = useCallback((supplier: Omit<Supplier, 'id'>, createdBy: string) => {
+    const id = `supplier_${Date.now()}`;
+    setDoc(doc(db, `workspaces/${workspaceId}/suppliers`, id), supplier);
+  }, [workspaceId]);
+
+  const updateSupplier = useCallback((supplier: Supplier, updatedBy: string) =>
+    updateDoc(doc(db, `workspaces/${workspaceId}/suppliers`, supplier.id), supplier as any), [workspaceId]);
+
+  const deleteSupplier = useCallback((id: string, deletedBy: string, supplierName: string) =>
+    deleteDoc(doc(db, `workspaces/${workspaceId}/suppliers`, id)), [workspaceId]);
+
+  const addHarvest = useCallback((harvest: Omit<Harvest, 'id' | 'quantityRemaining'>, createdBy: string) => {
+    const id = `harvest_${Date.now()}`;
+    const harvestWithRemaining = { ...harvest, quantityRemaining: harvest.quantity };
+    setDoc(doc(db, `workspaces/${workspaceId}/harvests`, id), harvestWithRemaining);
+  }, [workspaceId]);
+
+  const addSale = useCallback(async (sale: Omit<Sale, 'id' | 'journalEntryId' | 'invoiceNumber'>, createdBy: string) => {
+    const id = `sale_${Date.now()}`;
+    const invoiceNumber = `INV-${Date.now()}`;
+
+    // Save the sale
+    await setDoc(doc(db, `workspaces/${workspaceId}/sales`, id), { ...sale, invoiceNumber });
+
+    // Update harvest quantities
+    for (const item of sale.items) {
+      const harvestRef = doc(db, `workspaces/${workspaceId}/harvests`, item.harvestId);
+      const harvestSnap = await getDoc(harvestRef);
+      if (harvestSnap.exists()) {
+        const harvestData = harvestSnap.data();
+        const newQuantityRemaining = (harvestData.quantityRemaining || 0) - item.quantitySold;
+        await updateDoc(harvestRef, { quantityRemaining: newQuantityRemaining });
+      }
+    }
+  }, [workspaceId]);
+
+  const addCustomer = useCallback((customer: Omit<Customer, 'id'>, createdBy: string) => {
+    const id = `customer_${Date.now()}`;
+    setDoc(doc(db, `workspaces/${workspaceId}/customers`, id), customer);
+  }, [workspaceId]);
+
+  const updateCustomer = useCallback((customer: Customer, updatedBy: string) =>
+    updateDoc(doc(db, `workspaces/${workspaceId}/customers`, customer.id), customer as any), [workspaceId]);
+
+  const deleteCustomer = useCallback((id: string, deletedBy: string, customerName: string) =>
+    deleteDoc(doc(db, `workspaces/${workspaceId}/customers`, id)), [workspaceId]);
+
   return {
     plots, seasons, tasks, accounts, journalEntries, employees, timesheets, inventory, farmers, kbArticles, interactions,
+    suppliers, harvests, sales, customers,
     addPlot, updatePlot, deletePlot,
     addSeason, updateSeason, deleteSeason,
     addTask, updateTask, addTaskComment,
@@ -141,6 +197,10 @@ export const useFarmDataFirestore = (workspaceId: string): FarmDataContextType =
     addInventoryItem,
     addFarmer, updateFarmer, deleteFarmer,
     addInteraction,
-    addKBArticle, updateKBArticle, deleteKBArticle
+    addKBArticle, updateKBArticle, deleteKBArticle,
+    addSupplier, updateSupplier, deleteSupplier,
+    addHarvest,
+    addSale,
+    addCustomer, updateCustomer, deleteCustomer
   };
 };

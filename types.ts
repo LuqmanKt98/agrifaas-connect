@@ -164,7 +164,11 @@ export const ALL_ROLES = [
 export type Role = typeof ALL_ROLES[number];
 
 
-export const ALL_FEATURES = ['Dashboard', 'Operations', 'Financials', 'HR', 'Inventory', 'Plots & Seasons', 'AEO', 'AI Insights', 'Admin'] as const;
+export const ALL_FEATURES = [
+    'Dashboard', 'Operations', 'Financials', 'HR', 'Inventory',
+    'Plots & Seasons', 'AEO', 'AI Insights', 'Admin', 'Suppliers',
+    'Harvest & Sales', 'How To', 'FAQ'
+] as const;
 export type Feature = typeof ALL_FEATURES[number];
 
 export interface FeaturePermission {
@@ -217,6 +221,10 @@ export interface FarmDataContextType {
     farmers: Farmer[];
     kbArticles: KnowledgeBaseArticle[];
     interactions: Interaction[];
+    suppliers: Supplier[];
+    harvests: Harvest[];
+    sales: Sale[];
+    customers: Customer[];
 
     // Mutators
     addPlot: (plot: Omit<Plot, 'id'>) => void;
@@ -257,4 +265,16 @@ export interface FarmDataContextType {
     addKBArticle: (article: Omit<KnowledgeBaseArticle, 'id' | 'createdAt' | 'updatedAt'>) => void;
     updateKBArticle: (article: KnowledgeBaseArticle) => void;
     deleteKBArticle: (articleId: string) => void;
+
+    addSupplier: (supplier: Omit<Supplier, 'id'>, createdBy: string) => void;
+    updateSupplier: (supplier: Supplier, updatedBy: string) => void;
+    deleteSupplier: (supplierId: string, deletedBy: string, supplierName: string) => void;
+
+    addHarvest: (harvest: Omit<Harvest, 'id' | 'quantityRemaining'>, createdBy: string) => void;
+
+    addSale: (sale: Omit<Sale, 'id' | 'journalEntryId' | 'invoiceNumber'>, createdBy: string) => void;
+
+    addCustomer: (customer: Omit<Customer, 'id'>, createdBy: string) => void;
+    updateCustomer: (customer: Customer, updatedBy: string) => void;
+    deleteCustomer: (customerId: string, deletedBy: string, customerName: string) => void;
 }

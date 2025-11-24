@@ -12,6 +12,10 @@ import { PlotsAndSeasons } from './PlotsAndSeasons';
 import { AEO } from './AEO';
 import { AIInsights } from './AIInsights';
 import { Admin } from './Admin';
+import { Suppliers } from './Suppliers';
+import { HarvestAndSales } from './HarvestAndSales';
+import { HowToPage } from './HowToPage';
+import { FAQPage } from './FAQPage';
 import { ProfileModal } from './ProfileModal';
 import { Avatar } from './shared/Avatar';
 import { TaskDetailModal } from './TaskDetailModal';
@@ -99,15 +103,23 @@ export const MainApp: React.FC<MainAppProps> = ({
             case 'AI Insights':
                 return <AIInsights farmData={farmData} />;
             case 'Admin':
-                return <Admin 
-                    workspace={workspace} 
-                    workspaceUsers={workspaceUsers} 
-                    onUpdateFeaturePermissions={onUpdateFeaturePermissions} 
-                    onRemoveUser={onRemoveUser} 
+                return <Admin
+                    workspace={workspace}
+                    workspaceUsers={workspaceUsers}
+                    onUpdateFeaturePermissions={onUpdateFeaturePermissions}
+                    onRemoveUser={onRemoveUser}
                     onDeleteWorkspace={onDeleteWorkspace}
                     onUpdateUserRole={onUpdateUserRole}
                     currentUser={user}
                 />;
+            case 'Suppliers':
+                return <Suppliers farmData={farmData} user={user} />;
+            case 'Harvest & Sales':
+                return <HarvestAndSales farmData={farmData} user={user} />;
+            case 'How To':
+                return <HowToPage />;
+            case 'FAQ':
+                return <FAQPage />;
             default:
                 return <Dashboard farmData={farmData} user={user} />;
         }

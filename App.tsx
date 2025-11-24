@@ -6,7 +6,7 @@ import { MainApp } from './components/MainApp';
 import { SuperAdminPanel } from './components/super-admin/SuperAdminPanel';
 import { ImpersonationBanner } from './components/shared/ImpersonationBanner';
 import type { User, Workspace, Role, Feature, FeaturePermission } from './types';
-import { ALL_ROLES } from './types';
+import { ALL_ROLES, ALL_FEATURES } from './types';
 import { seedFirestoreData } from './services/seedFirestoreData';
 import { useAuth } from './hooks/useAuth';
 import { useFirestoreUsers } from './hooks/useFirestoreUsers';
@@ -33,6 +33,10 @@ const createMockWorkspace = (name: string, owner: User): Workspace => {
             'AEO': { enabled: true, allowedRoles: ['owner', 'Agr_iEx_Off'] },
             'AI Insights': { enabled: true, allowedRoles: ['owner', 'Farm Manager'] },
             'Admin': { enabled: true, allowedRoles: ['owner'] },
+            'Suppliers': { enabled: true, allowedRoles: [...ALL_ROLES] },
+            'Harvest & Sales': { enabled: true, allowedRoles: ['owner', 'Farm Manager', 'Field Manager'] },
+            'How To': { enabled: true, allowedRoles: [...ALL_ROLES] },
+            'FAQ': { enabled: true, allowedRoles: [...ALL_ROLES] },
         }
     };
 };
@@ -66,10 +70,38 @@ const App: React.FC = () => {
                 setUser(userData);
 
                 const workspaces = await queryCollection<Workspace>('workspaces', `members.${firebaseUser.uid}`, '!=', null);
-                setAllWorkspaces(workspaces);
 
-                if (workspaces.length > 0) {
-                    setWorkspace(workspaces[0]);
+                // Migrate workspaces to add missing feature permissions
+                const migratedWorkspaces = await Promise.all(workspaces.map(async (ws) => {
+                    let needsUpdate = false;
+                    const updatedPermissions = { ...ws.featurePermissions };
+
+                    // Check if any features are missing from featurePermissions
+                    ALL_FEATURES.forEach(feature => {
+                        if (!updatedPermissions[feature]) {
+                            needsUpdate = true;
+                            // Add default permissions for missing features
+                            if (feature === 'Suppliers' || feature === 'How To' || feature === 'FAQ') {
+                                updatedPermissions[feature] = { enabled: true, allowedRoles: [...ALL_ROLES] };
+                            } else if (feature === 'Harvest & Sales') {
+                                updatedPermissions[feature] = { enabled: true, allowedRoles: ['owner', 'Farm Manager', 'Field Manager'] };
+                            }
+                        }
+                    });
+
+                    // Update workspace in Firestore if needed
+                    if (needsUpdate) {
+                        const updatedWorkspace = { ...ws, featurePermissions: updatedPermissions };
+                        await setDocument('workspaces', ws.id, updatedWorkspace);
+                        return updatedWorkspace;
+                    }
+                    return ws;
+                }));
+
+                setAllWorkspaces(migratedWorkspaces);
+
+                if (migratedWorkspaces.length > 0) {
+                    setWorkspace(migratedWorkspaces[0]);
                 }
             }
         };
